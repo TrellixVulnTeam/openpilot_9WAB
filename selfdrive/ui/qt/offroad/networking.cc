@@ -8,9 +8,11 @@
 #include <QPainter>
 #include <QScrollBar>
 
+#include "selfdrive/ui/ui.h"
 #include "selfdrive/ui/qt/util.h"
 #include "selfdrive/ui/qt/qt_window.h"
 #include "selfdrive/ui/qt/widgets/controls.h"
+#include "selfdrive/ui/qt/widgets/prime.h"
 #include "selfdrive/ui/qt/widgets/scrollview.h"
 
 
@@ -148,33 +150,36 @@ AdvancedNetworking::AdvancedNetworking(QWidget* parent, WifiManager* wifi): QWid
   list->addItem(new SshToggle());
   list->addItem(new SshControl());
 
-  // Roaming toggle
-  const bool roamingEnabled = params.getBool("GsmRoaming");
-  ToggleControl *roamingToggle = new ToggleControl(tr("Enable Roaming"), "", "", roamingEnabled);
-  QObject::connect(roamingToggle, &SshToggle::toggleFlipped, [=](bool state) {
-    params.putBool("GsmRoaming", state);
-    wifi->updateGsmSettings(state, QString::fromStdString(params.get("GsmApn")));
-  });
-  list->addItem(roamingToggle);
-
-  // APN settings
-  ButtonControl *editApnButton = new ButtonControl(tr("APN Setting"), tr("EDIT"));
-  connect(editApnButton, &ButtonControl::clicked, [=]() {
+  int prime_type = uiState()->prime_type;
+  if (prime_type == PrimeType::NONE || prime_type == PrimeType::LITE) {
+    // Roaming toggle
     const bool roamingEnabled = params.getBool("GsmRoaming");
-    const QString cur_apn = QString::fromStdString(params.get("GsmApn"));
-    QString apn = InputDialog::getText(tr("Enter APN"), this, tr("leave blank for automatic configuration"), false, -1, cur_apn).trimmed();
+    ToggleControl *roamingToggle = new ToggleControl(tr("Enable Roaming"), "", "", roamingEnabled);
+    QObject::connect(roamingToggle, &SshToggle::toggleFlipped, [=](bool state) {
+      params.putBool("GsmRoaming", state);
+      wifi->updateGsmSettings(state, QString::fromStdString(params.get("GsmApn")));
+    });
+    list->addItem(roamingToggle);
 
-    if (apn.isEmpty()) {
-      params.remove("GsmApn");
-    } else {
-      params.put("GsmApn", apn.toStdString());
-    }
-    wifi->updateGsmSettings(roamingEnabled, apn);
-  });
-  list->addItem(editApnButton);
+    // APN settings
+    ButtonControl *editApnButton = new ButtonControl(tr("APN Setting"), tr("EDIT"));
+    connect(editApnButton, &ButtonControl::clicked, [=]() {
+      const bool roamingEnabled = params.getBool("GsmRoaming");
+      const QString cur_apn = QString::fromStdString(params.get("GsmApn"));
+      QString apn = InputDialog::getText(tr("Enter APN"), this, tr("leave blank for automatic configuration"), false, -1, cur_apn).trimmed();
 
-  // Set initial config
-  wifi->updateGsmSettings(roamingEnabled, QString::fromStdString(params.get("GsmApn")));
+      if (apn.isEmpty()) {
+        params.remove("GsmApn");
+      } else {
+        params.put("GsmApn", apn.toStdString());
+      }
+      wifi->updateGsmSettings(roamingEnabled, apn);
+    });
+    list->addItem(editApnButton);
+
+    // Set initial config
+    wifi->updateGsmSettings(roamingEnabled, QString::fromStdString(params.get("GsmApn")));
+  }
 
   main_layout->addWidget(new ScrollView(list, this));
   main_layout->addStretch(1);
